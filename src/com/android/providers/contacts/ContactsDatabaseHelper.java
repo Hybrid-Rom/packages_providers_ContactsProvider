@@ -119,7 +119,7 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
      *   900-999 L
      * </pre>
      */
-    static final int DATABASE_VERSION = 911;
+    static final int DATABASE_VERSION = 910;
 
     public interface Tables {
         public static final String CONTACTS = "contacts";
@@ -332,9 +332,8 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 "(SELECT " + AccountsColumns._ID +
                 " FROM " + Tables.ACCOUNTS +
                 " WHERE " +
-                    AccountsColumns.ACCOUNT_NAME + " IS NULL AND " +
-                    AccountsColumns.ACCOUNT_TYPE + " IS NULL AND " +
-                    AccountsColumns.DATA_SET + " IS NULL)";
+                AccountsColumns.ACCOUNT_TYPE + "='" +
+                AccountWithDataSet.ACCOUNT_TYPE_PHONE + "')";
 
         final String RAW_CONTACT_IS_LOCAL = RawContactsColumns.CONCRETE_ACCOUNT_ID
                 + "=" + LOCAL_ACCOUNT_ID;
@@ -2752,6 +2751,11 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
             oldVersion = 804;
         }
 
+        if (oldVersion < 810) {
+            upgradeToVersion810(db);
+            oldVersion = 810;
+        }
+
         if (oldVersion < 900) {
             upgradeViewsAndTriggers = true;
             oldVersion = 900;
@@ -2808,11 +2812,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 910) {
             upgradeToVersion910(db);
             oldVersion = 910;
-        }
-
-        if (oldVersion < 911) {
-            upgradeToVersion911(db);
-            oldVersion = 911;
         }
 
         if (upgradeViewsAndTriggers) {
@@ -4118,6 +4117,16 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
                 ContactsContract.PinnedPositions.UNPINNED + ";");
     }
 
+    private void upgradeToVersion810(SQLiteDatabase db) {
+        try {
+            db.execSQL("ALTER TABLE " + Tables.CALLS + " ADD " + Calls.DURATION_TYPE
+                + " INTEGER NOT NULL DEFAULT " + Calls.DURATION_TYPE_ACTIVE + ";");
+        } catch (SQLException e) {
+            Log.w(TAG, "Exception upgrading contacts2.db to 810 " + e);
+        }
+    }
+
+
     private void upgradeToVersion902(SQLiteDatabase db) {
         // adding account identifier to call log table
         db.execSQL("ALTER TABLE calls ADD subscription_component_name TEXT;");
@@ -4240,11 +4249,6 @@ public class ContactsDatabaseHelper extends SQLiteOpenHelper {
         if (user.isManagedProfile()) {
             db.execSQL("DELETE FROM calls;");
         }
-    }
-
-    private void upgradeToVersion911(SQLiteDatabase db) {
-        db.execSQL("ALTER TABLE " + Tables.CALLS + " ADD " + Calls.DURATION_TYPE
-                + " INTEGER NOT NULL DEFAULT " + Calls.DURATION_TYPE_ACTIVE + ";");
     }
 
     public String extractHandleFromEmailAddress(String email) {
